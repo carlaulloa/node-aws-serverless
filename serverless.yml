@@ -1,0 +1,177 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: personalccu
+# "service" is the name of this project. This will also be added to your AWS resource names.
+app: appointment-lambda
+
+service: appointment-lambda
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, "dev"}
+  iam:
+    role:
+      statements:
+        - Action: SNS:Publish
+          Effect: Allow
+          Resource: !Ref SnsAppointment
+
+build:
+  esbuild:
+    bundle: true
+    minify: false 
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  Appointment:
+    handler: src/handlers/appointment/index.register
+    events:
+      - http:
+          path: /my-path
+          method: post
+    environment:
+      SNS_APPOINTMENT: !Ref SnsAppointment
+  AppointmentCO:
+    handler: src/handlers/appointment-co/index.register
+    events:
+      - sqs:
+  #        batchSize: 5
+  #        maximumBatchingWindow: 30
+          arn: 
+            Fn::GetAtt:
+              - SQSCO
+              - Arn
+  AppointmentPE:
+    handler: src/handlers/appointment-pe/index.register
+    events:
+      - sqs:
+          arn: 
+            Fn::GetAtt:
+              - SQSPE
+              - Arn
+  AppointmentMX:
+    handler: src/handlers/appointment-mx/index.register
+    events:
+      - sqs:
+          arn: 
+            Fn::GetAtt:
+              - SQSMX
+              - Arn
+
+resources:
+  Resources:
+    SQSPE:
+      Type: AWS::SQS::Queue
+      Properties:
+       QueueName: ${self:service}-${self:provider.stage}-SQSPE
+
+    SQSCO:
+      Type: AWS::SQS::Queue
+      Properties:
+       QueueName: ${self:service}-${self:provider.stage}-SQSCO
+
+    SQSMX:
+      Type: AWS::SQS::Queue
+      Properties:
+       QueueName: ${self:service}-${self:provider.stage}-SQSMX
+
+    SnsAppointment:
+      Type: AWS::SNS::Topic
+      Properties:
+        DisplayName: "Topic to redirect"
+        TopicName: ${self:service}-${self:provider.stage}-SnsAppointment
+
+    SubscriptionSqsPE:
+      Type: AWS::SNS::Subscription
+      Properties:
+          Protocol: sqs
+          Endpoint: 
+            Fn::GetAtt:
+              - SQSPE
+              - Arn
+          TopicArn:
+            Ref: SnsAppointment
+          RawMessageDelivery: true
+          FilterPolicyScope: MessageBody
+          FilterPolicy:
+            countryISO:
+              - PE
+    SubscriptionSqsCO:
+      Type: AWS::SNS::Subscription
+      Properties:
+          Protocol: sqs
+          Endpoint: 
+            Fn::GetAtt:
+              - SQSCO
+              - Arn
+          TopicArn:
+            Ref: SnsAppointment
+          RawMessageDelivery: true
+          FilterPolicyScope: MessageBody
+          FilterPolicy:
+            countryISO:
+              - CO
+    SubscriptionSqsMX:
+      Type: AWS::SNS::Subscription
+      Properties:
+          Protocol: sqs
+          Endpoint: 
+            Fn::GetAtt:
+              - SQSMX
+              - Arn
+          TopicArn:
+            Ref: SnsAppointment
+          RawMessageDelivery: true
+          FilterPolicyScope: MessageBody
+          FilterPolicy:
+            countryISO:
+              - MX
+
+    PolicySqsPE:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSPE.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsAppointment
+        Queues:
+          - !Ref SQSPE
+
+    PolicySqsCO:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSCO.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsAppointment
+        Queues:
+          - !Ref SQSCO
+
+    PolicySqsMX:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSMX.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsAppointment
+        Queues:
+          - !Ref SQSMX
