@@ -15,6 +15,10 @@ provider:
         - Action: SNS:Publish
           Effect: Allow
           Resource: !Ref SnsAppointment
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: '*'
 
 build:
   esbuild:
@@ -24,12 +28,26 @@ build:
       - "@aws-sdk/*"
 
 functions:
+  AppointmentFromMobile:
+    handler: src/handlers/appointment-from-mobile/index.register
+    environment:
+      EVENT_BUS_NAME: !Ref EventBridgeBus
+    events:
+      - http:
+          path: /appointment-mobile
+          method: post
+
   Appointment:
     handler: src/handlers/appointment/index.register
     events:
       - http:
-          path: /my-path
+          path: /appointment
           method: post
+      - sqs:
+          arn: 
+            Fn::GetAtt:
+              - EventBridgeSQS
+              - Arn
     environment:
       SNS_APPOINTMENT: !Ref SnsAppointment
   AppointmentCO:
@@ -175,3 +193,54 @@ resources:
                   aws:SourceArn: !Ref SnsAppointment
         Queues:
           - !Ref SQSMX
+
+    EventBridgeSQS:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: "EventBridgeSQS"
+
+    EventBridgeBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: "EventBridgeBus"
+
+    MyEventRule:
+      Type: 'AWS::Events::Rule'
+      Properties:
+        EventBusName: EventBridgeBus
+        State: ENABLED
+        EventPattern:
+          source:
+            - appointment_mobile
+          detail-type:
+            - event_create_appointment
+        Targets:
+          - Arn: 
+              Fn::GetAtt: 
+                - EventBridgeSQS
+                - Arn
+            Id: 'SQSClient'
+
+    EventBridgePermission:
+      Type: 'AWS::SQS::QueuePolicy'
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Action: "sqs:SendMessage"
+              Principal:
+                Service: events.amazonaws.com
+              Resource:
+                Fn::GetAtt:
+                  - EventBridgeSQS
+                  - Arn
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn":
+                    Fn::GetAtt:
+                      - MyEventRule
+                      - Arn
+        Queues:
+          - !Ref EventBridgeSQS
+   

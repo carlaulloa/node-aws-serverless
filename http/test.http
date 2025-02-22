@@ -1,4 +1,4 @@
-POST https://e8gr7aok79.execute-api.us-east-1.amazonaws.com/dev/my-path
+POST https://gq3jpqqc81.execute-api.us-east-1.amazonaws.com/dev/appointment
 
 {
   "patientId": 7,
