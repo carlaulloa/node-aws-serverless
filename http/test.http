@@ -1,7 +1,7 @@
-POST https://gq3jpqqc81.execute-api.us-east-1.amazonaws.com/dev/appointment
+POST https://ezwvj6bpfk.execute-api.us-east-1.amazonaws.com/dev/appointment
 
 {
-  "patientId": 7,
+  "patientId": 6,
   "scheduleId": 222111,
   "countryISO": "PE"
 }

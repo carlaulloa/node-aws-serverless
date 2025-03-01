@@ -77,22 +77,55 @@ functions:
               - SQSMX
               - Arn
 
+  HelpDesk:
+    handler: src/handlers/help-desk/index.register
+    events:
+      - sqs:
+          arn: 
+            Fn::GetAtt:
+              - SQSDlq
+              - Arn
+
 resources:
   Resources:
     SQSPE:
       Type: AWS::SQS::Queue
       Properties:
-       QueueName: ${self:service}-${self:provider.stage}-SQSPE
+        QueueName: ${self:service}-${self:provider.stage}-SQSPE
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - "SQSDlq"
+              - "Arn"
+          maxReceiveCount: 1
 
     SQSCO:
       Type: AWS::SQS::Queue
       Properties:
-       QueueName: ${self:service}-${self:provider.stage}-SQSCO
+        QueueName: ${self:service}-${self:provider.stage}-SQSCO
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - "SQSDlq"
+              - "Arn"
+          maxReceiveCount: 1
 
     SQSMX:
       Type: AWS::SQS::Queue
       Properties:
-       QueueName: ${self:service}-${self:provider.stage}-SQSMX
+        QueueName: ${self:service}-${self:provider.stage}-SQSMX
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - "SQSDlq"
+              - "Arn"
+          maxReceiveCount: 1
+
+    SQSDlq:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-SQSDlq
+        VisibilityTimeout: 10
 
     SnsAppointment:
       Type: AWS::SNS::Topic
